@@ -1,10 +1,12 @@
 from fastapi import FastAPI, Query
+from fastapi.responses import HTMLResponse
 import requests
 import json
 
 app = FastAPI()
 
 # ---------------- CONFIG ----------------
+MAINTENANCE_MODE = False   # 🔴 set True to pause service
 FAMPAY_TOKEN = "eyJlbmMiOiJBMjU2Q0JDLUhTNTEyIiwiZXBrIjp7Imt0eSI6Ik9LUCIsImNydiI6Ilg0NDgiLCJ4IjoiS0s1Sk9zbjRUNGF3NF9EOVd6Z0U0QkJQRF9leGZkZkU4QTdxNXM5QlJOS0I0T2p5SXJqVGMxdnh3RHlBREJoQXpYbjVNd2M5aWU4In0sImFsZyI6IkVDREgtRVMifQ..w3b_31d31e1ptAh06UxMEg.2D0FKvzqMRRmjP35UjJYUt4Ow8yOEOOmyRE6MX-xd9a-sJJK9X0G_OyAL0lBGqTHGz6eixM6I6Ji7pvdO8AsL9QW4O7hxOUAWjEC4Yp23kHeKHrxWcfxAPa6wUmstMGGt7_yvmv7YrhdB_XzFIbITgJhIMlLer1PPMqD_voQ9LU3dUMeq6vUkIVxtDGwIOV1ys2sUqi5JZ6v9KkeejjjHn2_wp6qjAlARKHSbY0-LOgfb6HHdGcKVD7Wo_jhKA7Ez322K_REX7PwZxovutfpUw.HLBRzIVXrbqOrgRdiveiRCYOyPZgKrq9gEt_GkUTS9U"
 API_VERIFY = "https://halfblood.famapp.in/vpa/verifyExt"
 API_PAYOUT = "https://westeros.famapp.in/txn/create/payout/add/"
@@ -47,7 +49,6 @@ def call_payout(upi: str):
         return None, {"error": str(e)}
 
 def query_upi(upi: str):
-    """Returns JSON data instead of printing"""
     if "@" in upi and not upi.replace("@","").isdigit():
         status, data = call_payout(upi)
         vpa = None
@@ -84,7 +85,24 @@ def query_upi(upi: str):
             "raw": data
         }
 
-# FastAPI endpoint
+# ---------------- ROUTES ----------------
+@app.get("/", response_class=HTMLResponse)
+def home():
+    status = "maintenance" if MAINTENANCE_MODE else "active"
+    message = (
+        "<h2>⚡ VoidZero API Service ⚡</h2>"
+        f"<p>Status: <b>{status}</b></p>"
+        f"<p>Contact at Telegram: "
+        f"<a href='https://t.me/aerialchan' target='_blank'>@aerialchan</a></p>"
+    )
+    if MAINTENANCE_MODE:
+        message += "<p>🚧 Currently under maintenance. Please check back later.</p>"
+    else:
+        message += "<p>✅ Service is running. Use /upi?vpa=xxxx</p>"
+    return message
+
 @app.get("/upi")
 def upi(vpa: str = Query(...)):
+    if MAINTENANCE_MODE:
+        return {"status": "maintenance", "message": "API is under maintenance. Please try later."}
     return query_upi(vpa)
